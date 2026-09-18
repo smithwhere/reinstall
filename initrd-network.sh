@@ -13,6 +13,7 @@ ipv6_gateway=$5
 is_in_china=$6
 ipv6_extra_addrs=$7
 custom_dns=$8
+static_ipv4=$9
 
 DHCP_TIMEOUT=15
 DNS_FILE_TIMEOUT=5
@@ -410,6 +411,13 @@ done
 is_have_ipv4_addr && dhcpv4=true || dhcpv4=false
 is_have_ipv6_addr && dhcpv6_or_slaac=true || dhcpv6_or_slaac=false
 is_have_ipv6_gateway && ra_has_gateway=true || ra_has_gateway=false
+
+# --static-ipv4 强制使用重装前检测到的 IPv4 地址、前缀和网关
+if [ "$static_ipv4" = 1 ] && $dhcpv4 && [ -n "$ipv4_addr" ] && [ -n "$ipv4_gateway" ]; then
+    echo 'Using current system IPv4 settings as static configuration.'
+    should_disable_dhcpv4=true
+    flush_ipv4_config
+fi
 
 # 如果自动获取的 IP 不是重装前的，则改成静态，使用之前的 IP
 # 只比较 IP，不比较掩码/网关，因为

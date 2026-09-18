@@ -189,6 +189,7 @@ bash reinstall.sh anolis      7|8|23
 - `--dns 'DNS1 DNS2'` 在 Debian 安装中使用自定义 DNS 服务器，例如 `--dns '8.8.8.8 8.8.4.4'`
 - `--hostname HOSTNAME` 设置安装后系统的主机名，例如 `--hostname Debian`
 - `--ethx` 使用 `eth0/eth1` 风格的网卡名称，而不是 `enp0s3`
+- `--static-ipv4` 自动使用当前系统的 IPv4 地址、前缀和网关；默认使用 DHCP
 - `--frpc-config PATH` 添加 frpc 内网穿透，参数填配置文件的本地路径或 HTTP 链接
 - `--hold 1` 仅重启到安装环境，不运行安装，用于 SSH 登录验证网络连通性
 - `--hold 2` 安装结束后不重启，用于 SSH 登录修改系统内容，Debian/Kali 会挂载在 `/target`，其它系统会挂载在 `/os`

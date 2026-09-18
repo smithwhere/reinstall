@@ -110,6 +110,7 @@ Usage: $reinstall_____ anolis      7|8|23
                        [--web-port    PORT]
                        [--hostname    HOSTNAME]
                        [--ethx]
+                       [--static-ipv4]
                        [--frpc-config PATH]
 
                        For Windows Only:
@@ -368,6 +369,11 @@ is_hostname_valid() {
 }
 
 validate_custom_network_options() {
+    if [ "$static_ipv4" = 1 ] &&
+        { [ -n "$netmask" ] || [ -n "$ip" ] || [ -n "$gateway" ]; }; then
+        error_and_exit "static_ipv4 conflicts with --netmask, --ip and --gateway"
+    fi
+
     if [ -n "$netmask" ] || [ -n "$ip" ] || [ -n "$gateway" ]; then
         [ -n "$netmask" ] && [ -n "$ip" ] && [ -n "$gateway" ] ||
             error_and_exit "--netmask, --ip and --gateway must be specified together."
@@ -3564,7 +3570,7 @@ build_extra_cmdline() {
     # https://salsa.debian.org/installer-team/rootskel/-/blob/master/src/lib/debian-installer-startup.d/S02module-params?ref_type=heads
     for key in confhome hold force_boot_mode force_cn force_old_windows_setup cloud_image main_disk \
         elts deb_mirror \
-        username ssh_port rdp_port web_port allow_ping custom_hostname use_ethx \
+        username ssh_port rdp_port web_port allow_ping custom_hostname use_ethx static_ipv4 \
         custom_ipv4_addr custom_ipv4_gateway custom_dns; do
         value=${!key}
         if [ -n "$value" ]; then
@@ -4164,6 +4170,10 @@ EOF
 get_ip_conf_cmd() {
     collect_netconf >&2
 
+    if [ "$static_ipv4" = 1 ] && ! is_found_ipv4_netconf; then
+        error_and_exit "--static-ipv4 requires a current system IPv4 address and gateway."
+    fi
+
     if [ -n "$custom_ipv4_addr" ]; then
         # Preserve the detected NIC while replacing only the IPv4 address and gateway.
         ipv4_mac=${ipv4_mac:-$ipv6_mac}
@@ -4175,13 +4185,13 @@ get_ip_conf_cmd() {
 
     sh=/initrd-network.sh
     if is_found_ipv4_netconf && is_found_ipv6_netconf && [ "$ipv4_mac" = "$ipv6_mac" ]; then
-        echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns'"
+        echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns' '$static_ipv4'"
     else
         if is_found_ipv4_netconf; then
-            echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '' '' '$is_in_china' '' '$custom_dns'"
+            echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '' '' '$is_in_china' '' '$custom_dns' '$static_ipv4'"
         fi
         if is_found_ipv6_netconf; then
-            echo "'$sh' '$ipv6_mac' '' '' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns'"
+            echo "'$sh' '$ipv6_mac' '' '' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns' '$static_ipv4'"
         fi
     fi
 }
@@ -4802,6 +4812,7 @@ for o in ci installer debug minimal allow-ping force-cn help \
     web-port: http-port: \
     hostname: \
     ethx \
+    static-ipv4 \
     netmask: \
     ip: \
     gateway: \
@@ -5057,6 +5068,10 @@ EOF
         ;;
     --ethx)
         use_ethx=1
+        shift
+        ;;
+    --static-ipv4)
+        static_ipv4=1
         shift
         ;;
     --add-driver)

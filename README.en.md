@@ -189,6 +189,7 @@ bash reinstall.sh anolis      7|8|23
 - `--dns 'DNS1 DNS2'` Use custom DNS servers during Debian installation, for example `--dns '8.8.8.8 8.8.4.4'`
 - `--hostname HOSTNAME` Set the hostname of the installed system, for example `--hostname Debian`
 - `--ethx` Use `eth0/eth1` style network interface names instead of `enp0s3`
+- `--static-ipv4` Reuse the current system's IPv4 address, prefix, and gateway; DHCP remains the default
 - `--frpc-config PATH` Add frpc for intranet tunneling. Parameter can be local filepath or HTTP URL of the configuration file.
 - `--hold 1` Reboot only into install environment, without running installer, only for SSH connect to test network connection.
 - `--hold 2` Prevent reboot after installation completes, allowing SSH login to modify system content; the system is mounted at `/target` for Debian/Kali and `/os` for other distros.
