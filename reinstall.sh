@@ -6,9 +6,9 @@
 # alpine 默认没有 bash，因此 shebang 用 sh，再 exec 切换到 bash
 
 set -eE
-confhome=https://raw.githubusercontent.com/bin456789/reinstall/main
-confhome_cn=https://cnb.cool/bin456789/reinstall/-/git/raw/main
-# confhome_cn=https://www.ghproxy.cc/https://raw.githubusercontent.com/bin456789/reinstall/main
+confhome=https://raw.githubusercontent.com/smithwhere/reinstall/main
+confhome_cn=https://raw.githubusercontent.com/smithwhere/reinstall/main
+# confhome_cn=https://www.ghproxy.cc/https://raw.githubusercontent.com/smithwhere/reinstall/main
 
 # 用于判断 reinstall.sh 和 trans.sh 是否兼容
 SCRIPT_VERSION=4BACD833-A585-23BA-6CBB-9AA4E08E0004
@@ -86,7 +86,7 @@ Usage: $reinstall_____ anolis      7|8|23
                        fygoos      1
                        nixos       26.05
                        fedora      43|44
-                       debian      9|10|11|12|13
+                       debian      9|10|11|12|13|14
                        opensuse    16.0|tumbleweed
                        openeuler   20.03|22.03|24.03
                        alpine      3.21|3.22|3.23|3.24
@@ -316,6 +316,70 @@ is_use_firmware() {
 
 is_digit() {
     [[ "$1" =~ ^[0-9]+$ ]]
+}
+
+is_ipv4_address() {
+    local octet
+    local -a octets
+
+    IFS=. read -r -a octets <<<"$1"
+    [ "${#octets[@]}" -eq 4 ] || return 1
+    for octet in "${octets[@]}"; do
+        is_digit "$octet" && [ "$octet" -le 255 ] || return 1
+    done
+}
+
+is_ipv4_netmask() {
+    local octet
+    local zero_seen=0
+    local -a octets
+
+    IFS=. read -r -a octets <<<"$1"
+    [ "${#octets[@]}" -eq 4 ] || return 1
+    for octet in "${octets[@]}"; do
+        case "$octet" in
+        255)
+            [ "$zero_seen" -eq 0 ] || return 1
+            ;;
+        254 | 252 | 248 | 240 | 224 | 192 | 128)
+            [ "$zero_seen" -eq 0 ] || return 1
+            zero_seen=1
+            ;;
+        0)
+            zero_seen=1
+            ;;
+        *)
+            return 1
+            ;;
+        esac
+    done
+}
+
+validate_custom_network_options() {
+    if [ -n "$netmask" ] || [ -n "$ip" ] || [ -n "$gateway" ]; then
+        [ -n "$netmask" ] && [ -n "$ip" ] && [ -n "$gateway" ] ||
+            error_and_exit "--netmask, --ip and --gateway must be specified together."
+        is_ipv4_netmask "$netmask" || error_and_exit "Invalid --netmask value: $netmask"
+        is_ipv4_address "$ip" || error_and_exit "Invalid --ip value: $ip"
+        is_ipv4_address "$gateway" || error_and_exit "Invalid --gateway value: $gateway"
+        custom_ipv4_addr="$ip/$(mask2cidr "$netmask")"
+        custom_ipv4_gateway=$gateway
+    fi
+
+    if [ -n "$dns" ]; then
+        local dns_server
+        local -a dns_servers
+
+        read -r -a dns_servers <<<"$dns"
+        [ "${#dns_servers[@]}" -gt 0 ] || error_and_exit 'The --dns value cannot be empty.'
+        for dns_server in "${dns_servers[@]}"; do
+            if ! is_ipv4_address "$dns_server" &&
+                ! [[ "$dns_server" =~ ^[0-9A-Fa-f:]+$ ]]; then
+                error_and_exit "Invalid --dns value: $dns_server"
+            fi
+        done
+        custom_dns=$dns
+    fi
 }
 
 is_port_valid() {
@@ -2153,7 +2217,7 @@ verify_os_name() {
         'fygoos      1' \
         'fedora      43|44' \
         'nixos       26.05' \
-        'debian      9|10|11|12|13' \
+        'debian      9|10|11|12|13|14' \
         'opensuse    16.0|tumbleweed' \
         'alpine      3.21|3.22|3.23|3.24' \
         'openeuler   20.03|22.03|24.03' \
@@ -3477,7 +3541,8 @@ build_extra_cmdline() {
     # https://salsa.debian.org/installer-team/rootskel/-/blob/master/src/lib/debian-installer-startup.d/S02module-params?ref_type=heads
     for key in confhome hold force_boot_mode force_cn force_old_windows_setup cloud_image main_disk \
         elts deb_mirror \
-        username ssh_port rdp_port web_port allow_ping; do
+        username ssh_port rdp_port web_port allow_ping \
+        custom_ipv4_addr custom_ipv4_gateway custom_dns; do
         value=${!key}
         if [ -n "$value" ]; then
             is_need_quote "$value" &&
@@ -4072,17 +4137,25 @@ EOF
 
 get_ip_conf_cmd() {
     collect_netconf >&2
+
+    if [ -n "$custom_ipv4_addr" ]; then
+        # Preserve the detected NIC while replacing only the IPv4 address and gateway.
+        ipv4_mac=${ipv4_mac:-$ipv6_mac}
+        ipv4_addr=$custom_ipv4_addr
+        ipv4_gateway=$custom_ipv4_gateway
+    fi
+
     is_in_china && is_in_china=true || is_in_china=false
 
     sh=/initrd-network.sh
     if is_found_ipv4_netconf && is_found_ipv6_netconf && [ "$ipv4_mac" = "$ipv6_mac" ]; then
-        echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs'"
+        echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns'"
     else
         if is_found_ipv4_netconf; then
-            echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '' '' '$is_in_china' ''"
+            echo "'$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '' '' '$is_in_china' '' '$custom_dns'"
         fi
         if is_found_ipv6_netconf; then
-            echo "'$sh' '$ipv6_mac' '' '' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs'"
+            echo "'$sh' '$ipv6_mac' '' '' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns'"
         fi
     fi
 }
@@ -4701,6 +4774,10 @@ for o in ci installer debug minimal allow-ping force-cn help \
     ssh-key: public-key: \
     rdp-port: \
     web-port: http-port: \
+    netmask: \
+    ip: \
+    gateway: \
+    dns: \
     allow-ping: \
     commit: \
     frpc-conf: frpc-config: \
@@ -4924,6 +5001,26 @@ EOF
         web_port=$2
         shift 2
         ;;
+    --netmask)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        netmask=$2
+        shift 2
+        ;;
+    --ip)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        ip=$2
+        shift 2
+        ;;
+    --gateway)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        gateway=$2
+        shift 2
+        ;;
+    --dns)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        dns=$2
+        shift 2
+        ;;
     --add-driver)
         [ -n "$2" ] || error_and_exit "Need value for $1"
 
@@ -5012,6 +5109,7 @@ EOF
 done
 
 # 检查必须的参数
+validate_custom_network_options
 verify_os_args
 
 # 用户名

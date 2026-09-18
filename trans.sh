@@ -1164,6 +1164,44 @@ get_eths() {
     )
 }
 
+apply_custom_network_config() {
+    local netconf
+    local custom_ethx=
+
+    if [ -n "$custom_ipv4_addr" ]; then
+        # Reuse the detected NIC and replace only its IPv4 settings.
+        for netconf in /dev/netconf/*; do
+            [ -d "$netconf" ] || continue
+            if [ -s "$netconf/ipv4_addr" ] || [ -s "$netconf/ipv4_gateway" ]; then
+                custom_ethx=${netconf##*/}
+                break
+            fi
+        done
+        if [ -z "$custom_ethx" ]; then
+            for netconf in /dev/netconf/*; do
+                [ -d "$netconf" ] || continue
+                custom_ethx=${netconf##*/}
+                break
+            done
+        fi
+        [ -n "$custom_ethx" ] || error_and_exit 'Cannot apply custom IPv4 settings: no network interface found.'
+
+        printf '%s\n' "$custom_ipv4_addr" >"/dev/netconf/$custom_ethx/ipv4_addr"
+        printf '%s\n' "$custom_ipv4_gateway" >"/dev/netconf/$custom_ethx/ipv4_gateway"
+        echo 0 >"/dev/netconf/$custom_ethx/dhcpv4"
+        echo 1 >"/dev/netconf/$custom_ethx/should_disable_dhcpv4"
+        echo 1 >"/dev/netconf/$custom_ethx/ipv4_has_internet"
+    fi
+
+    if [ -n "$custom_dns" ]; then
+        touch /etc/resolv.conf
+        sed -i '/^nameserver[[:space:]]/d' /etc/resolv.conf
+        for dns in $custom_dns; do
+            echo "nameserver $dns" >>/etc/resolv.conf
+        done
+    fi
+}
+
 is_distro_like_debian() {
     [ "$distro" = debian ] || [ "$distro" = kali ]
 }
@@ -1230,6 +1268,11 @@ EOF
         # ipv4
         if is_dhcpv4; then
             echo "iface $ethx inet dhcp" >>$conf_file
+            if [ -n "$custom_dns" ]; then
+                for dns in $(get_current_dns); do
+                    echo "    dns-nameservers $dns" >>$conf_file
+                done
+            fi
 
         elif is_staticv4; then
             get_netconf_to ipv4_addr
@@ -3310,6 +3353,11 @@ create_cloud_init_network_config() {
 
         config_id=$((config_id + 1))
     done
+
+    if [ -n "$custom_dns" ]; then
+        need_set_dns4=true
+        need_set_dns6=true
+    fi
 
     if $need_set_dns4 || $need_set_dns6; then
         yq -i ".network.config[$config_id].type=\"nameserver\"" $ci_file
@@ -8435,6 +8483,7 @@ rm -f /etc/runlevels/default/local
 
 # 提取变量
 extract_env_from_cmdline
+apply_custom_network_config
 
 # 带参数运行部分
 # 重新下载并 exec 运行新脚本
