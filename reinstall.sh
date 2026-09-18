@@ -1506,6 +1506,13 @@ Continue?
             initrd_mirror=$mirror
         fi
 
+        # Debian 14 (forky) 的 archive installer 仍可能提供 Debian 13 内核，
+        # 与 Debian 14 的 udeb 模块包不匹配。使用官方 daily installer，
+        # 其内核、initrd 和模块包保持同步。
+        if [ "$releasever" = 14 ]; then
+            initrd_mirror=d-i.debian.org/daily-images
+        fi
+
         # 云镜像和 firmware 下载源
         if is_in_china; then
             cdimage_mirror=https://mirror.nju.edu.cn/debian-cdimage
@@ -1533,7 +1540,11 @@ Continue?
             set_osvar img "$cdimage_mirror/cloud/$codename/latest/debian-$releasever-$ci_type-$basearch_alt.qcow2"
         else
             # 传统安装
-            initrd_dir=dists/$codename/main/installer-$basearch_alt/current/images/netboot/debian-installer/$basearch_alt
+            if [ "$releasever" = 14 ]; then
+                initrd_dir=$basearch_alt/daily/netboot/debian-installer/$basearch_alt
+            else
+                initrd_dir=dists/$codename/main/installer-$basearch_alt/current/images/netboot/debian-installer/$basearch_alt
+            fi
 
             set_osvar udeb_mirror "$udeb_mirror"
             set_osvar vmlinuz "https://$initrd_mirror/$initrd_dir/linux"

@@ -23,6 +23,8 @@ Assert-Contains $reinstall '--gateway)' 'The --gateway parser branch is missing.
 Assert-Contains $reinstall '--dns)' 'The --dns parser branch is missing.'
 Assert-Contains $reinstall '14) codename=forky' 'Debian 14 codename mapping is missing.'
 Assert-Contains $reinstall 'debian      9|10|11|12|13|14' 'Debian 14 is missing from version validation.'
+Assert-Contains $reinstall 'initrd_mirror=d-i.debian.org/daily-images' 'Debian 14 does not use the matching daily installer mirror.'
+Assert-Contains $reinstall 'initrd_dir=$basearch_alt/daily/netboot/debian-installer/$basearch_alt' 'Debian 14 daily installer path is missing.'
 Assert-Contains $reinstall 'custom_ipv4_addr' 'The normalized custom IPv4 address is missing.'
 Assert-Contains $reinstall '''$sh' '$ipv4_mac' '$ipv4_addr' '$ipv4_gateway' '$ipv6_addr' '$ipv6_gateway' '$is_in_china' '$ipv6_extra_addrs' '$custom_dns''' 'Custom DNS is not passed to the initrd network script.'
 Assert-Contains $initrd 'custom_dns=$8' 'The initrd network script does not accept custom DNS.'
