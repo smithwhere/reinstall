@@ -187,6 +187,8 @@ bash reinstall.sh anolis      7|8|23
 - `--web-port PORT` Change the Web port (for log observation during installation only)
 - `--netmask NETMASK --ip IP --gateway GATEWAY` Use custom IPv4 network settings during Debian installation, for example `--netmask 255.255.255.0 --ip 179.255.110.216 --gateway 179.255.110.1`
 - `--dns 'DNS1 DNS2'` Use custom DNS servers during Debian installation, for example `--dns '8.8.8.8 8.8.4.4'`
+- `--hostname HOSTNAME` Set the hostname of the installed system, for example `--hostname Debian`
+- `--ethx` Use `eth0/eth1` style network interface names instead of `enp0s3`
 - `--frpc-config PATH` Add frpc for intranet tunneling. Parameter can be local filepath or HTTP URL of the configuration file.
 - `--hold 1` Reboot only into install environment, without running installer, only for SSH connect to test network connection.
 - `--hold 2` Prevent reboot after installation completes, allowing SSH login to modify system content; the system is mounted at `/target` for Debian/Kali and `/os` for other distros.

@@ -108,6 +108,8 @@ Usage: $reinstall_____ anolis      7|8|23
                        [--ssh-key     KEY]
                        [--ssh-port    PORT]
                        [--web-port    PORT]
+                       [--hostname    HOSTNAME]
+                       [--ethx]
                        [--frpc-config PATH]
 
                        For Windows Only:
@@ -353,6 +355,16 @@ is_ipv4_netmask() {
             ;;
         esac
     done
+}
+
+is_hostname_valid() {
+    local value=$1
+
+    [ -n "$value" ] && [ "${#value}" -le 253 ] || return 1
+    [[ "$value" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || return 1
+    ! [[ "$value" =~ \.\. ]] || return 1
+    ! [[ "$value" =~ (^|[.])- ]] || return 1
+    ! [[ "$value" =~ -($|[.]) ]]
 }
 
 validate_custom_network_options() {
@@ -3552,7 +3564,7 @@ build_extra_cmdline() {
     # https://salsa.debian.org/installer-team/rootskel/-/blob/master/src/lib/debian-installer-startup.d/S02module-params?ref_type=heads
     for key in confhome hold force_boot_mode force_cn force_old_windows_setup cloud_image main_disk \
         elts deb_mirror \
-        username ssh_port rdp_port web_port allow_ping \
+        username ssh_port rdp_port web_port allow_ping custom_hostname use_ethx \
         custom_ipv4_addr custom_ipv4_gateway custom_dns; do
         value=${!key}
         if [ -n "$value" ]; then
@@ -3634,6 +3646,9 @@ build_nextos_cmdline() {
         fi
     else
         nextos_cmdline+=" $(echo_tmp_ttys)"
+    fi
+    if [ "$use_ethx" = 1 ]; then
+        nextos_cmdline+=" net.ifnames=0 biosdevname=0"
     fi
     # nextos_cmdline+=" mem=256M"
     # nextos_cmdline+=" lowmem=+1"
@@ -4785,6 +4800,8 @@ for o in ci installer debug minimal allow-ping force-cn help \
     ssh-key: public-key: \
     rdp-port: \
     web-port: http-port: \
+    hostname: \
+    ethx \
     netmask: \
     ip: \
     gateway: \
@@ -5031,6 +5048,16 @@ EOF
         [ -n "$2" ] || error_and_exit "Need value for $1"
         dns=$2
         shift 2
+        ;;
+    --hostname)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        is_hostname_valid "$2" || error_and_exit "Invalid --hostname value: $2"
+        custom_hostname=$2
+        shift 2
+        ;;
+    --ethx)
+        use_ethx=1
+        shift
         ;;
     --add-driver)
         [ -n "$2" ] || error_and_exit "Need value for $1"

@@ -1202,6 +1202,31 @@ apply_custom_network_config() {
     fi
 }
 
+apply_custom_hostname() {
+    local os_dir=$1
+
+    if [ -n "$custom_hostname" ]; then
+        printf '%s\n' "$custom_hostname" >"$os_dir/etc/hostname"
+        if [ -f "$os_dir/etc/hosts" ]; then
+            sed -Ei '/^[[:space:]]*127\.0\.1\.1[[:space:]]/d' "$os_dir/etc/hosts"
+            printf '127.0.1.1 %s\n' "$custom_hostname" >>"$os_dir/etc/hosts"
+        fi
+    fi
+}
+
+apply_ethx_kernel_parameters() {
+    local os_dir=$1
+
+    [ "$use_ethx" = 1 ] || return
+    mkdir -p "$os_dir/etc/default/grub.d"
+    cat <<'EOF' >"$os_dir/etc/default/grub.d/99-reinstall-ethx.cfg"
+GRUB_CMDLINE_LINUX="net.ifnames=0 biosdevname=0"
+EOF
+    if is_have_cmd_on_disk "$os_dir" update-grub; then
+        chroot "$os_dir" update-grub
+    fi
+}
+
 is_distro_like_debian() {
     [ "$distro" = debian ] || [ "$distro" = kali ]
 }
@@ -2278,6 +2303,9 @@ basic_init() {
 
     # gentoo 不会自动创建 machine-id
     clear_machine_id $os_dir
+
+    apply_custom_hostname "$os_dir"
+    apply_ethx_kernel_parameters "$os_dir"
 
     # sshd
     chroot $os_dir ssh-keygen -A

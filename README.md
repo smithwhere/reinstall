@@ -187,6 +187,8 @@ bash reinstall.sh anolis      7|8|23
 - `--web-port PORT` 修改 Web 端口（安装期间观察日志用）
 - `--netmask NETMASK --ip IP --gateway GATEWAY` 在 Debian 安装中使用自定义 IPv4 网络配置，例如 `--netmask 255.255.255.0 --ip 179.255.110.216 --gateway 179.255.110.1`
 - `--dns 'DNS1 DNS2'` 在 Debian 安装中使用自定义 DNS 服务器，例如 `--dns '8.8.8.8 8.8.4.4'`
+- `--hostname HOSTNAME` 设置安装后系统的主机名，例如 `--hostname Debian`
+- `--ethx` 使用 `eth0/eth1` 风格的网卡名称，而不是 `enp0s3`
 - `--frpc-config PATH` 添加 frpc 内网穿透，参数填配置文件的本地路径或 HTTP 链接
 - `--hold 1` 仅重启到安装环境，不运行安装，用于 SSH 登录验证网络连通性
 - `--hold 2` 安装结束后不重启，用于 SSH 登录修改系统内容，Debian/Kali 会挂载在 `/target`，其它系统会挂载在 `/os`
