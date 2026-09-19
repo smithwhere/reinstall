@@ -5079,7 +5079,12 @@ chroot_apt_install() {
     # 一次性安装，避免多次 update-initramfs
     if [ -n "$pkgs" ]; then
         chroot_apt_update $os_dir
-        DEBIAN_FRONTEND=noninteractive chroot $os_dir apt-get install -y $pkgs
+        if ! DEBIAN_FRONTEND=noninteractive chroot $os_dir apt-get -o Acquire::Retries=3 install -y $pkgs; then
+            # The mirror may have changed package versions after the cached index was downloaded.
+            saved_hash=
+            chroot_apt_update $os_dir
+            DEBIAN_FRONTEND=noninteractive chroot $os_dir apt-get -o Acquire::Retries=3 install -y $pkgs
+        fi
     fi
 }
 
