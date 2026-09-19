@@ -67,5 +67,9 @@ Assert-Contains $debianConfig 'in-target apt-get install -y $install' 'The Debia
 Assert-Contains $debianConfig 'time/zone string "$timezone"' 'The Debian preseed does not apply the requested timezone.'
 Assert-Contains $trans 'time.timeZone = "%s"' 'The NixOS configuration does not apply the requested timezone.'
 Assert-Contains $trans 'environment.systemPackages' 'The NixOS configuration does not install requested packages.'
+if ($debianConfig.Contains("echo 'Reinstalling...'")) {
+    throw 'The Debian installer still writes the SSH login instruction block to /etc/motd.'
+}
+Assert-Contains $debianConfig 'case $- in *i*) printf "\033[2J\033[H" ;; esac' 'The Debian installer does not clear the BusyBox shell startup banner for interactive SSH sessions.'
 
 Write-Output 'PASS: Debian 14, custom network, hostname, ethx, and static IPv4 option wiring is present.'
