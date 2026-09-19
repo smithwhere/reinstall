@@ -72,7 +72,9 @@ Assert-Contains $trans 'environment.systemPackages' 'The NixOS configuration doe
 if ($debianConfig.Contains("echo 'Reinstalling...'")) {
     throw 'The Debian installer still writes the SSH login instruction block to /etc/motd.'
 }
-Assert-Contains $debianConfig 'case $- in *i*) printf "\033[2J\033[H" ;; esac' 'The Debian installer does not clear the BusyBox shell startup banner for interactive SSH sessions.'
+if ($debianConfig.Contains('case $- in *i*) printf "\033[2J\033[H" ;; esac')) {
+    throw 'The Debian installer must leave the BusyBox ash startup banner visible.'
+}
 if ($debianConfig -match '(?m)^\s+# BusyBox ash prints its built-in banner') {
     throw 'The Debian preseed command contains a comment inside its continued shell statement.'
 }
