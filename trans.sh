@@ -8455,7 +8455,9 @@ EOF
 trans() {
     info "start trans"
 
-    mod_motd
+    if [ "$distro" != "dd" ]; then
+        mod_motd
+    fi
 
     # 先检查 modloop 是否正常
     # 防止格式化硬盘后，缺少 ext4 模块导致 mount 失败
@@ -8473,7 +8475,7 @@ trans() {
         find_xda
     fi
 
-    if [ "$distro" != "alpine" ]; then
+    if [ "$distro" != "alpine" ] && [ "$distro" != "dd" ]; then
         setup_web_if_enough_ram
         # util-linux 包含 lsblk
         # util-linux 可自动探测 mount 格式
@@ -8670,8 +8672,12 @@ fi
 # shellcheck disable=SC2046,SC2194
 case 1 in
 1)
-    # ChatGPT 说这种性能最高
-    exec > >(exec tee $(get_ttys /dev/) /reinstall.log) 2>&1
+    if [ "$distro" = "dd" ]; then
+        exec > >(exec tee $(get_ttys /dev/)) 2>&1
+    else
+        # ChatGPT 说这种性能最高
+        exec > >(exec tee $(get_ttys /dev/) /reinstall.log) 2>&1
+    fi
     trans
     ;;
 2)
