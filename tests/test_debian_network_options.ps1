@@ -71,5 +71,8 @@ if ($debianConfig.Contains("echo 'Reinstalling...'")) {
     throw 'The Debian installer still writes the SSH login instruction block to /etc/motd.'
 }
 Assert-Contains $debianConfig 'case $- in *i*) printf "\033[2J\033[H" ;; esac' 'The Debian installer does not clear the BusyBox shell startup banner for interactive SSH sessions.'
+if ($debianConfig -match '(?m)^\s+# BusyBox ash prints its built-in banner') {
+    throw 'The Debian preseed command contains a comment inside its continued shell statement.'
+}
 
 Write-Output 'PASS: Debian 14, custom network, hostname, ethx, and static IPv4 option wiring is present.'
