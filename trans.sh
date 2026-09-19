@@ -534,6 +534,7 @@ extract_env_from_cmdline() {
     else
         username=${username:-root}
     fi
+    timezone=${timezone:-Asia/Shanghai}
     ssh_port=${ssh_port:-22}
     rdp_port=${rdp_port:-3389}
     web_port=${web_port:-80}
@@ -1214,6 +1215,65 @@ apply_custom_hostname() {
     fi
 }
 
+apply_custom_timezone() {
+    local os_dir=$1
+
+    [ -n "$timezone" ] || return
+    case "$timezone" in
+    /* | *..* | *[!A-Za-z0-9._+/-]*)
+        error_and_exit "Invalid --timezone value: $timezone"
+        ;;
+    esac
+    if [ -f "$os_dir/etc/alpine-release" ]; then
+        chroot "$os_dir" setup-timezone -i "$timezone"
+    elif is_have_cmd_on_disk "$os_dir" systemd-firstboot; then
+        if ! [ -f "$os_dir/usr/share/zoneinfo/$timezone" ]; then
+            error_and_exit "Timezone does not exist: $timezone"
+        fi
+        if chroot "$os_dir" systemd-firstboot --help | grep -wq '\--force'; then
+            chroot "$os_dir" systemd-firstboot --timezone="$timezone" --force
+        else
+            chroot "$os_dir" systemd-firstboot --timezone="$timezone"
+        fi
+    else
+        if ! [ -f "$os_dir/usr/share/zoneinfo/$timezone" ]; then
+            error_and_exit "Timezone does not exist: $timezone"
+        fi
+        ln -snf "/usr/share/zoneinfo/$timezone" "$os_dir/etc/localtime"
+        printf '%s\n' "$timezone" >"$os_dir/etc/timezone"
+    fi
+}
+
+install_custom_packages() {
+    local os_dir=$1
+    local pkgs
+
+    [ -n "$install" ] || return
+    pkgs=$(printf '%s' "$install" | tr ',' ' ')
+    [ -n "$pkgs" ] || return
+    echo "Installing requested packages: $pkgs"
+
+    if [ -f "$os_dir/etc/alpine-release" ]; then
+        chroot "$os_dir" apk add $pkgs
+    elif [ -f "$os_dir/etc/debian_version" ]; then
+        chroot_apt_install "$os_dir" $pkgs
+    elif is_have_cmd_on_disk "$os_dir" dnf; then
+        chroot "$os_dir" dnf install -y $pkgs
+    elif is_have_cmd_on_disk "$os_dir" yum; then
+        chroot "$os_dir" yum install -y $pkgs
+    elif is_have_cmd_on_disk "$os_dir" pacman; then
+        chroot "$os_dir" pacman -Syu --noconfirm --needed $pkgs
+    elif is_have_cmd_on_disk "$os_dir" zypper; then
+        chroot "$os_dir" zypper --non-interactive install -y $pkgs
+    elif is_have_cmd_on_disk "$os_dir" emerge; then
+        chroot "$os_dir" emerge --oneshot $pkgs
+    elif is_have_cmd_on_disk "$os_dir" oma; then
+        chroot "$os_dir" oma install -y $pkgs
+    else
+        error_and_exit "Can't find a compatible package manager for --install."
+    fi
+}
+
 apply_ethx_kernel_parameters() {
     local os_dir=$1
 
@@ -1749,7 +1809,8 @@ install_alpine() {
 
     # 安装其他部件
     chroot /os setup-keymap us us
-    chroot /os setup-timezone -i Asia/Shanghai
+    apply_custom_timezone /os
+    install_custom_packages /os
     # 3.21 默认是 chrony
     # 3.22 默认是 busybox ntp
     printf '\n' | chroot /os setup-ntp || true
@@ -2079,6 +2140,21 @@ $(
 };
 "
 
+    nix_timezone=
+    if [ -n "$timezone" ]; then
+        nix_timezone=$(printf 'time.timeZone = "%s";' "$timezone")
+    fi
+
+    nix_packages=
+    if [ -n "$install" ]; then
+        nix_package_lines=$(for pkg in $(printf '%s' "$install" | tr ',' ' '); do
+            printf '  pkgs."%s"\n' "$pkg"
+        done)
+        nix_packages="environment.systemPackages = with pkgs; [
+$nix_package_lines
+];"
+    fi
+
     # frpc
     if ls /configs/frpc.* >/dev/null 2>&1; then
         nix_frpc=$(
@@ -2128,6 +2204,8 @@ $nix_substituters
 boot.kernelParams = [ $(get_ttys console= | quote_word) ];
 $nix_users
 $nix_openssh
+$nix_timezone
+$nix_packages
 $nix_frpc
 $(cat /tmp/nixos_network_config.nix)
 ###################################################
@@ -2306,6 +2384,8 @@ basic_init() {
 
     apply_custom_hostname "$os_dir"
     apply_ethx_kernel_parameters "$os_dir"
+    apply_custom_timezone "$os_dir"
+    install_custom_packages "$os_dir"
 
     # sshd
     chroot $os_dir ssh-keygen -A

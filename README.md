@@ -188,6 +188,8 @@ bash reinstall.sh anolis      7|8|23
 - `--netmask NETMASK --ip IP --gateway GATEWAY` 在 Debian 安装中使用自定义 IPv4 网络配置，例如 `--netmask 255.255.255.0 --ip 179.255.110.216 --gateway 179.255.110.1`
 - `--dns 'DNS1 DNS2'` 在 Debian 安装中使用自定义 DNS 服务器，例如 `--dns '8.8.8.8 8.8.4.4'`
 - `--hostname HOSTNAME` 设置安装后系统的主机名，例如 `--hostname Debian`
+- `--timezone TIMEZONE` 设置安装后 Linux 系统的时区，默认是 `Asia/Shanghai`，例如 `--timezone America/Los_Angeles`
+- `--install "PACKAGE..."` 安装自定义软件包列表，例如 `--install 'sudo curl wget git vim'`
 - `--ethx` 使用 `eth0/eth1` 风格的网卡名称，而不是 `enp0s3`
 - `--static-ipv4` 自动使用当前系统的 IPv4 地址、前缀和网关；默认使用 DHCP
 - `--frpc-config PATH` 添加 frpc 内网穿透，参数填配置文件的本地路径或 HTTP 链接

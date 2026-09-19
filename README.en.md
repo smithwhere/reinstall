@@ -188,6 +188,8 @@ bash reinstall.sh anolis      7|8|23
 - `--netmask NETMASK --ip IP --gateway GATEWAY` Use custom IPv4 network settings during Debian installation, for example `--netmask 255.255.255.0 --ip 179.255.110.216 --gateway 179.255.110.1`
 - `--dns 'DNS1 DNS2'` Use custom DNS servers during Debian installation, for example `--dns '8.8.8.8 8.8.4.4'`
 - `--hostname HOSTNAME` Set the hostname of the installed system, for example `--hostname Debian`
+- `--timezone TIMEZONE` Set the timezone of the installed Linux system; defaults to `Asia/Shanghai`, for example `--timezone America/Los_Angeles`
+- `--install "PACKAGE..."` Install a custom package list, for example `--install 'sudo curl wget git vim'`
 - `--ethx` Use `eth0/eth1` style network interface names instead of `enp0s3`
 - `--static-ipv4` Reuse the current system's IPv4 address, prefix, and gateway; DHCP remains the default
 - `--frpc-config PATH` Add frpc for intranet tunneling. Parameter can be local filepath or HTTP URL of the configuration file.

@@ -113,6 +113,10 @@ Usage: $reinstall_____ anolis      7|8|23
                        [--static-ipv4]
                        [--frpc-config PATH]
 
+                       For Linux Only:
+                       [--timezone    TIMEZONE]
+                       [--install     "PACKAGE..."]
+
                        For Windows Only:
                        [--allow-ping]
                        [--rdp-port    PORT]
@@ -3570,7 +3574,7 @@ build_extra_cmdline() {
     # https://salsa.debian.org/installer-team/rootskel/-/blob/master/src/lib/debian-installer-startup.d/S02module-params?ref_type=heads
     for key in confhome hold force_boot_mode force_cn force_old_windows_setup cloud_image main_disk \
         elts deb_mirror \
-        username ssh_port rdp_port web_port allow_ping custom_hostname use_ethx static_ipv4 \
+        username ssh_port rdp_port web_port allow_ping custom_hostname timezone install use_ethx static_ipv4 \
         custom_ipv4_addr custom_ipv4_gateway custom_dns; do
         value=${!key}
         if [ -n "$value" ]; then
@@ -4811,6 +4815,8 @@ for o in ci installer debug minimal allow-ping force-cn help \
     rdp-port: \
     web-port: http-port: \
     hostname: \
+    timezone: \
+    install: \
     ethx \
     static-ipv4 \
     netmask: \
@@ -5064,6 +5070,26 @@ EOF
         [ -n "$2" ] || error_and_exit "Need value for $1"
         is_hostname_valid "$2" || error_and_exit "Invalid --hostname value: $2"
         custom_hostname=$2
+        shift 2
+        ;;
+    --timezone)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        case "$2" in
+        /* | *..* | *[!A-Za-z0-9._+/-]*)
+            error_and_exit "Invalid --timezone value: $2"
+            ;;
+        esac
+        timezone=$2
+        shift 2
+        ;;
+    --install)
+        [ -n "$2" ] || error_and_exit "Need value for $1"
+        if ! printf '%s\n' "$2" | grep -Eq '^[[:space:]]*[A-Za-z0-9_+:.@/-]+([[:space:]]+[A-Za-z0-9_+:.@/-]+)*[[:space:]]*$'; then
+            error_and_exit "Invalid --install value: $2"
+        fi
+        # Keep package names as a single boot parameter. The comma encoding
+        # is decoded by the target-system installers.
+        install=$(printf '%s' "$2" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]]+/,/g')
         shift 2
         ;;
     --ethx)
