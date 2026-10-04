@@ -1528,9 +1528,8 @@ Continue?
             initrd_mirror=$mirror
         fi
 
-        # Debian 14 (forky) 的 archive installer 仍可能提供 Debian 13 内核，
-        # 与 Debian 14 的 udeb 模块包不匹配。使用官方 daily installer，
-        # 其内核、initrd 和模块包保持同步。
+        # Debian 14 使用 daily installer。daily 与 archive 更新并非原子操作，
+        # 下载后还必须按实际内核版本选择匹配的 udeb suite。
         if [ "$releasever" = 14 ]; then
             initrd_mirror=d-i.debian.org/daily-images
         fi
@@ -2364,6 +2363,7 @@ install_pkg() {
             *) pkg="binutils" ;;
             esac
             ;;
+        sha256sum) pkg="coreutils" ;;
         xz)
             case "$pkg_mgr" in
             apt-get) pkg="xz-utils" ;;
@@ -3629,6 +3629,11 @@ build_nextos_cmdline() {
         nextos_cmdline+=" url=$nextos_ks"
         nextos_cmdline+=" mirror/http/hostname=${nextos_udeb_mirror%/*}"
         nextos_cmdline+=" mirror/http/directory=/${nextos_udeb_mirror##*/}"
+        if [ -n "${nextos_udeb_suite:-}" ]; then
+            # 目标系统和安装器组件可以来自不同 suite，不能一起切到 unstable。
+            nextos_cmdline+=" mirror/suite=$nextos_codename"
+            nextos_cmdline+=" mirror/udeb/suite=$nextos_udeb_suite"
+        fi
         nextos_cmdline+=" base-installer/kernel/image=$nextos_kernel"
         # elts 的 debian 不能用 security 源，否则安装过程会提示无法访问
         if [ "$nextos_distro" = debian ] && is_debian_elts; then
@@ -3696,6 +3701,88 @@ mkdir_clear() {
     # umount_all "$dir"
     rm -rf "$dir"
     mkdir -p "$dir"
+}
+
+download_debian_daily_installer() {
+    local vmlinuz_file=$1
+    local initrd_file=$2
+    local sums=$tmp/debian-installer-SHA256SUMS
+    local image_dir=${nextos_initrd%/netboot/*}
+    local image_path=./netboot/debian-installer/$basearch_alt
+    local vmlinuz_sha initrd_sha
+
+    # 先取同一次构建的校验和，防止 daily 链接更新时混用两个构建。
+    install_pkg sha256sum
+    curl -Lo "$sums" "$image_dir/SHA256SUMS" ||
+        error_and_exit 'Could not download Debian daily installer checksums.'
+    vmlinuz_sha=$(awk -v path="$image_path/linux" '$2 == path {print $1}' "$sums")
+    initrd_sha=$(awk -v path="$image_path/initrd.gz" '$2 == path {print $1}' "$sums")
+    if ! [[ "$vmlinuz_sha" =~ ^[0-9a-f]{64}$ && "$initrd_sha" =~ ^[0-9a-f]{64}$ ]]; then
+        error_and_exit 'Debian daily installer checksums are missing. Please retry later.'
+    fi
+
+    curl -Lo "$vmlinuz_file" "$nextos_vmlinuz" ||
+        error_and_exit 'Could not download the Debian daily installer kernel.'
+    curl -Lo "$initrd_file" "$nextos_initrd" ||
+        error_and_exit 'Could not download the Debian daily installer initrd.'
+    if ! printf '%s  %s\n%s  %s\n' "$vmlinuz_sha" "$vmlinuz_file" \
+        "$initrd_sha" "$initrd_file" | sha256sum -c -; then
+        error_and_exit 'Debian daily installer changed during download. Please run reinstall.sh again before rebooting.'
+    fi
+}
+
+debian_installer_has_kernel() {
+    local index=$1
+    local kernel=$2
+    # 比较完整包名，避免 +、. 被当作正则表达式，或只匹配到相近版本。
+    awk -v kernel="$kernel" '
+        BEGIN {
+            split("linux-binary base-modules scsi-core-modules ata-modules scsi-modules", modules)
+            for (i in modules) required[modules[i] "-" kernel "-di"] = 1
+        }
+        /^Package: / { if ($2 in required) found[$2] = 1 }
+        END {
+            for (package in required) if (!(package in found)) exit 1
+        }
+    ' "$index"
+}
+
+select_debian_installer_udeb_suite() {
+    local mirror suite compressed index
+    local mirrors=("$nextos_udeb_mirror")
+    if [ "$nextos_udeb_mirror" != deb.debian.org/debian ]; then
+        mirrors+=(deb.debian.org/debian)
+    fi
+
+    if ! [[ "$kver" =~ ^[[:alnum:].+_-]+$ ]]; then
+        error_and_exit 'Could not identify a single Debian installer kernel version.'
+    fi
+
+    for mirror in "${mirrors[@]}"; do
+        for suite in "$nextos_codename" unstable; do
+            compressed=$tmp/debian-installer-$suite-Packages.gz
+            index=$tmp/debian-installer-$suite-Packages
+            if ! curl -sSL --max-time 60 -o "$compressed" \
+                "https://$mirror/dists/$suite/main/debian-installer/binary-$basearch_alt/Packages.gz" ||
+                ! gzip -dc "$compressed" >"$index"; then
+                continue
+            fi
+            if debian_installer_has_kernel "$index" "$kver"; then
+                nextos_udeb_mirror=$mirror
+                nextos_udeb_suite=$suite
+                # 预下载 sshd/fdisk/驱动时复用已核对的索引和 suite。
+                awk '/^Filename: / {print $2}' "$index" >"$tmp/udeb_${suite}_list"
+                printf '%s\n' "$suite" >etc/udebs-source
+                info "Debian installer kernel $kver: matched $suite at $mirror"
+                return
+            fi
+            info "Debian installer kernel $kver: no matching modules in $suite at $mirror"
+        done
+    done
+
+    error_and_exit "No Debian installer module source matches kernel $kver.
+Debian daily images and mirrors may be updating. Please retry later; do not reboot into this installer.
+Debian 安装器内核与模块源暂时不同步，请稍后重新运行；不要重启进入本次安装器。"
 }
 
 mod_initrd_debian_kali() {
@@ -3768,6 +3855,9 @@ mod_initrd_debian_kali() {
 
     # shellcheck disable=SC2012
     kver=$(ls -d lib/modules/* | awk -F/ '{print $NF}')
+    if [ "$nextos_distro" = debian ] && [ "$nextos_releasever" = 14 ]; then
+        select_debian_installer_udeb_suite
+    fi
 
     net_retriever=usr/lib/debian-installer/retriever/net-retriever
     # shellcheck disable=SC2016
@@ -3828,21 +3918,28 @@ EOF
         local type=$1
         local package=$2
         local extract_dir=$3
+        local suite=$nextos_codename
 
         # shellcheck disable=SC2154
         case "$type" in
         deb)
             local mirror=$nextos_deb_mirror
-            local url=http://$mirror/dists/$nextos_codename/main/binary-$basearch_alt/Packages.gz
+            # 补充内核驱动也必须与 daily installer 的实际内核来自同一 suite。
+            if [ "$package" = "linux-image-$kver" ] && [ -n "${nextos_udeb_suite:-}" ]; then
+                mirror=$nextos_udeb_mirror
+                suite=$nextos_udeb_suite
+            fi
+            local url=http://$mirror/dists/$suite/main/binary-$basearch_alt/Packages.gz
             ;;
         udeb)
             local mirror=$nextos_udeb_mirror
-            local url=http://$mirror/dists/$nextos_codename/main/debian-installer/binary-$basearch_alt/Packages.gz
+            suite=${nextos_udeb_suite:-$nextos_codename}
+            local url=http://$mirror/dists/$suite/main/debian-installer/binary-$basearch_alt/Packages.gz
             ;;
         esac
 
         # 获取 deb/udeb 列表
-        deb_list=$tmp/${type}_list
+        deb_list=$tmp/${type}_${suite}_list
         if ! [ -f $deb_list ]; then
             curl -L "$url" | zcat | grep 'Filename:' | awk '{print $2}' >$deb_list
         fi
@@ -5276,8 +5373,12 @@ if is_netboot_xyz; then
 else
     # 下载 nextos 内核
     info download vmlnuz and initrd
-    curl -Lo /reinstall-vmlinuz $nextos_vmlinuz
-    curl -Lo /reinstall-initrd $nextos_initrd
+    if [ "$nextos_distro" = debian ] && [ "$nextos_releasever" = 14 ]; then
+        download_debian_daily_installer /reinstall-vmlinuz /reinstall-initrd
+    else
+        curl -Lo /reinstall-vmlinuz $nextos_vmlinuz
+        curl -Lo /reinstall-initrd $nextos_initrd
+    fi
     if is_use_firmware; then
         curl -Lo /reinstall-firmware $nextos_firmware
     fi
