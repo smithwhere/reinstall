@@ -1,0 +1,16 @@
+name: Linux installer checks
+
+on: [push, pull_request]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Linux file bytes and shell syntax
+        run: |
+          python3 tests/test_linux_line_endings.py
+          bash -n reinstall.sh
+          bash -n tests/test_debian_installer_kernel.sh
+      - name: Check Debian installer kernel matching
+        run: bash tests/test_debian_installer_kernel.sh

@@ -1,0 +1,4 @@
+# Linux shells and installer preseeds must retain Unix line endings on Windows.
+*.sh text eol=lf
+*.cfg text eol=lf
+*.md text eol=lf
