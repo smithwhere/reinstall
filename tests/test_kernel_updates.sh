@@ -50,7 +50,10 @@ dpkg-query() {
     printf '%s %s\n' "${@: -1}" "$(cat "$state/installed")"
 }
 sleep() { :; }
-export -f apt-get apt-mark dpkg-query sleep
+# This suite exercises APT, not the host's BIOS/GRUB. Console behaviour is
+# tested against a disposable filesystem by test_bios_console.sh.
+uname() { echo aarch64; }
+export -f apt-get apt-mark dpkg-query sleep uname
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 reset_state() {
