@@ -180,6 +180,8 @@ bash reinstall.sh anolis      7|8|23
 
 Debian and Ubuntu installations refresh APT indexes and install or upgrade the selected kernel meta-package to the candidate version for the target release, architecture and kernel flavour, including enabled security updates. This is enabled by default for the Debian installer, Debian/Ubuntu cloud images and Ubuntu ISO installation; no kernel entry in `--install` is needed. Existing cloud, generic, HWE and cloud-vendor kernel selection is preserved. No backports, third-party repositories or release upgrades are enabled automatically. Older releases are limited to the versions available in their configured, reachable repositories. Persistent index refresh or kernel installation failures stop installation instead of silently keeping an outdated kernel.
 
+On x86 BIOS systems, Debian/Ubuntu installation configures GRUB text output and `console=tty0` to avoid black or garbled VNC consoles with cloud kernels, including the observed Vultr case. UEFI, ARM and systems without GRUB are left unchanged; existing GRUB serial-console access is retained. `--ethx` still replaces the original `GRUB_CMDLINE_LINUX` with `net.ifnames=0 biosdevname=0`; the later console configuration appends `console=tty0`.
+
 #### Optional Parameters
 
 - `--username USERNAME` Set the username
