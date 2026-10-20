@@ -9,7 +9,10 @@ root = Path(__file__).resolve().parent.parent
 paths = (
     [Path(name) for name in sys.argv[1:]]
     if len(sys.argv) > 1
-    else sorted([*root.rglob("*.sh"), *root.rglob("*.cfg")])
+    else sorted([
+        *root.rglob("*.sh"), *root.rglob("*.cfg"),
+        *root.rglob("*.yaml"), *root.rglob("*.yml"),
+    ])
 )
 if not paths:
     sys.exit("FAIL: no Linux installer files found")
