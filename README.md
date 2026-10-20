@@ -180,6 +180,8 @@ bash reinstall.sh anolis      7|8|23
 
 Debian 和 Ubuntu 安装时会刷新软件源，并将选定的内核元包安装或升级到该系统版本、架构及内核分支的软件源候选版本（包含已启用的安全更新）。此行为默认启用，无需在 `--install` 中额外添加内核；适用于 Debian 安装器、Debian/Ubuntu 云镜像及 Ubuntu ISO 安装。保留原有 cloud、generic、HWE 或云厂商内核选择，不自动启用 backports、第三方源或跨发行版升级。旧版本系统只能取得其当前可访问、已配置的软件源提供的版本。索引刷新或内核安装持续失败时会报错并停止，避免静默保留旧内核。
 
+x86 BIOS 模式下，Debian/Ubuntu 安装结束时会自动设置 GRUB 文本显示与 `console=tty0`，避免 cloud 内核在 Vultr 等 VNC 控制台上出现黑屏或花屏；UEFI、ARM 及未使用 GRUB 的系统跳过此设置。已有 GRUB 串行控制台会保留。`--ethx` 仍覆盖原有 `GRUB_CMDLINE_LINUX` 为 `net.ifnames=0 biosdevname=0`，随后文本控制台配置附加 `console=tty0`。
+
 #### 可选参数
 
 - `--username USERNAME` 设置用户名
