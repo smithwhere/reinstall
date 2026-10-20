@@ -70,6 +70,11 @@ autoinstall:
           eval "$(echo $var | sed -E "s/${prefix}_([^=]*)=(.*)/\1='\2'/")"
       done
 
+      # Update the selected kernel even when the ISO already installed it.
+      curl -fL "$confhome/update-kernel.sh" -o /target/tmp/reinstall-update-kernel.sh || exit 1
+      curtin in-target --target=/target -- sh /tmp/reinstall-update-kernel.sh "linux-$kernel" || exit 1
+      rm -f /target/tmp/reinstall-update-kernel.sh
+
       # 下载合并分区脚本
       cd /target
       curl -LO $confhome/deprecated/resize.sh
