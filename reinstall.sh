@@ -1542,11 +1542,7 @@ Continue?
             # cloud.debian.org 同样在瑞典，不是 cdn
         fi
 
-        is_virt && flavour=-cloud || flavour=
-        # debian 10 云内核 vultr efi vnc 没有显示
-        [ "$releasever" -le 10 ] && flavour=
-        # 甲骨文 arm64 cloud 内核 vnc 没有显示
-        [ "$basearch_alt" = arm64 ] && flavour=
+        # Standard kernels include display drivers needed by UEFI/VNC guests.
 
         if is_use_cloud_image; then
             # cloud image
@@ -1577,7 +1573,7 @@ Continue?
 
         # 官方安装和云镜像都会用到的
         set_osvar deb_mirror "$deb_mirror"
-        set_osvar kernel "linux-image$flavour-$basearch_alt"
+        set_osvar kernel "linux-image-$basearch_alt"
     }
 
     setos_kali() {
@@ -2196,8 +2192,10 @@ Continue with DD?
     *) setos_$distro ;;
     esac
 
-    # debian/kali <=256M 必须使用云内核，否则不够内存
-    if is_distro_like_debian && ! is_in_windows && [ "$ram_size" -le 256 ]; then
+    # Standard Debian kernels need more RAM; never fall back to cloud kernels.
+    if [ "$distro" = debian ] && ! is_in_windows && [ "$ram_size" -le 256 ]; then
+        error_and_exit "Standard Debian kernels require more than 256 MiB RAM; cloud kernels are disabled."
+    elif is_distro_like_debian && ! is_in_windows && [ "$ram_size" -le 256 ]; then
         exit_if_cant_use_cloud_kernel
     fi
 

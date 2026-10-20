@@ -49,7 +49,7 @@
 | 系统                                                                                                                                                                                                                                                                                                                                                                   | 版本                                  | 内存      | 硬盘         |
 | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------- | --------- | ------------ |
 | <img width="16" height="16" src="https://www.alpinelinux.org/alpine-logo.ico" /> Alpine                                                                                                                                                                                                                                                                                | 3.21, 3.22, 3.23, 3.24                | 256 MB    | 1 GB         |
-| <img width="16" height="16" src="https://www.debian.org/favicon.ico" /> Debian                                                                                                                                                                                                                                                                                         | 9, 10, 11, 12, 13, 14                 | 256 MB    | 1 ~ 1.5 GB ^ |
+| <img width="16" height="16" src="https://www.debian.org/favicon.ico" /> Debian                                                                                                                                                                                                                                                                                         | 9, 10, 11, 12, 13, 14                 | 512 MB    | 1 ~ 1.5 GB ^ |
 | <img width="16" height="16" src="https://github.com/bin456789/reinstall/assets/7548515/f74b3d5b-085f-4df3-bcc9-8a9bd80bb16d" /> Kali                                                                                                                                                                                                                                   | 滚动                                  | 256 MB    | 1 ~ 1.5 GB ^ |
 | <img width="16" height="16" src="https://documentation.ubuntu.com/server/_static/favicon.png" /> Ubuntu                                                                                                                                                                                                                                                                | 18.04 LTS - 26.04 LTS                 | 512 MB \* | 2 GB         |
 | <img width="16" height="16" src="https://img.alicdn.com/imgextra/i1/O1CN01oJnJZg1yK4RzI4Rx2_!!6000000006559-2-tps-118-118.png" /> Anolis                                                                                                                                                                                                                               | 7, 8, 23                              | 512 MB \* | 5 GB         |
@@ -150,7 +150,7 @@ certutil -urlcache -f -split https://cnb.cool/bin456789/reinstall/-/git/raw/main
 - 脚本会提示输入用户名和密码，不输入则使用 `root` 和随机密码
 - 不输入版本号则安装最新版
 - 最大化利用磁盘空间：不含 boot 和 swap 分区
-- 自动根据机器类型和商家安装优化内核
+- Debian/Ubuntu 默认安装标准内核；其他发行版保留其内核选择策略
 - 安装 Red Hat 时需填写 <https://access.redhat.com/downloads/content/rhel> 得到的 `qcow2` 镜像链接，也可以安装其它类 RHEL 系统的 `qcow2`，例如 `Alibaba Cloud Linux` 和 `TencentOS Server`
 - 重装后如需修改 SSH 端口或者改成密钥登录，注意还要修改 `/etc/ssh/sshd_config.d/` 里面的文件
 - 为了快速安装，重装时不会对新系统进行更新，请在重装后自行更新
@@ -178,9 +178,9 @@ bash reinstall.sh anolis      7|8|23
                   redhat      --img="http://access.cdn.redhat.com/xxx.qcow2"
 ```
 
-Debian 和 Ubuntu 安装时会刷新软件源，并将选定的内核元包安装或升级到该系统版本、架构及内核分支的软件源候选版本（包含已启用的安全更新）。此行为默认启用，无需在 `--install` 中额外添加内核；适用于 Debian 安装器、Debian/Ubuntu 云镜像及 Ubuntu ISO 安装。保留原有 cloud、generic、HWE 或云厂商内核选择，不自动启用 backports、第三方源或跨发行版升级。旧版本系统只能取得其当前可访问、已配置的软件源提供的版本。索引刷新或内核安装持续失败时会报错并停止，避免静默保留旧内核。
+Debian 和 Ubuntu 安装时会刷新软件源，安装或升级当前系统版本的最新标准内核（包含已启用的安全更新）。Debian 使用 `linux-image-amd64` / `linux-image-arm64`；Ubuntu 使用 generic，LTS 保留对应的 HWE 分支，不再按虚拟机或云商选择 cloud、virtual、kvm、aws、azure 等优化内核。此行为默认启用，适用于 Debian 安装器、Debian/Ubuntu 云镜像及 Ubuntu ISO，无需在 `--install` 中额外添加内核。不自动启用 backports、第三方源或跨发行版升级；旧系统只能取得已配置且可访问的软件源中的版本。先确认标准内核和 initrd 已存在，再清理原有 cloud/云商内核并更新 GRUB，防止继续默认启动旧 cloud 内核。软件源刷新、内核安装或清理失败时会停止安装。Debian 标准内核不支持原有 256 MB 低内存 cloud 内核方案，低内存检查会提前报错。
 
-x86 BIOS 模式下，Debian/Ubuntu 安装结束时会自动设置 GRUB 文本显示与 `console=tty0`，避免 cloud 内核在 Vultr 等 VNC 控制台上出现黑屏或花屏；UEFI、ARM 及未使用 GRUB 的系统跳过此设置。已有 GRUB 串行控制台会保留。`--ethx` 仍覆盖原有 `GRUB_CMDLINE_LINUX` 为 `net.ifnames=0 biosdevname=0`，随后文本控制台配置附加 `console=tty0`。
+x86 BIOS 模式下仍配置 GRUB 文本显示与 `console=tty0`；UEFI 使用标准内核提供的显卡驱动，已在 Vultr Debian 13 上验证 `6.12.113+deb13-amd64` 的 bochs DRM 控制台正常。ARM 及未使用 GRUB 的系统跳过文本模式设置；已有 GRUB 串行控制台会保留。`--ethx` 仍覆盖原有 `GRUB_CMDLINE_LINUX` 为 `net.ifnames=0 biosdevname=0`，BIOS 文本控制台配置随后附加 `console=tty0`。
 
 #### 可选参数
 
