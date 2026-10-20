@@ -4109,7 +4109,7 @@ EOF
         fi
 
         # 该方法包含了 apt-mark manual
-        chroot_apt_install $os_dir "$kernel_package"
+        chroot_update_kernel "$os_dir" "$kernel_package"
 
         # 使用 autoremove 删除非最佳内核
         chroot_apt_autoremove $os_dir
@@ -5050,6 +5050,17 @@ chroot_dnf() {
     fi
 }
 
+chroot_update_kernel() {
+    local os_dir=$1
+    local kernel_package=$2
+
+    if ! download "$confhome/update-kernel.sh" "$os_dir/tmp/reinstall-update-kernel.sh" ||
+        ! chroot "$os_dir" sh /tmp/reinstall-update-kernel.sh "$kernel_package"; then
+        error_and_exit "Could not update kernel meta-package: $kernel_package"
+    fi
+    rm -f "$os_dir/tmp/reinstall-update-kernel.sh"
+}
+
 chroot_apt_update() {
     local os_dir=$1
 
@@ -5698,7 +5709,7 @@ EOF
         # 需要再次运行 apt install PKG 才会将包设置成 manual
 
         # 该方法包含了 apt-mark manual
-        chroot_apt_install $os_dir "linux-image-$flavor"
+        chroot_update_kernel "$os_dir" "linux-image-$flavor"
 
         # 使用 autoremove 删除多余内核
         chroot_apt_autoremove $os_dir

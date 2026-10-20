@@ -11,6 +11,11 @@ jobs:
         run: |
           python3 tests/test_linux_line_endings.py
           bash -n reinstall.sh
+          bash -n trans.sh
+          sh -n update-kernel.sh
+          bash -n tests/test_kernel_updates.sh
           bash -n tests/test_debian_installer_kernel.sh
+      - name: Check Debian and Ubuntu kernel updates
+        run: bash tests/test_kernel_updates.sh
       - name: Check Debian installer kernel matching
         run: bash tests/test_debian_installer_kernel.sh

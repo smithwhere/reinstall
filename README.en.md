@@ -178,6 +178,8 @@ bash reinstall.sh anolis      7|8|23
                   redhat      --img="http://access.cdn.redhat.com/xxx.qcow2"
 ```
 
+Debian and Ubuntu installations refresh APT indexes and install or upgrade the selected kernel meta-package to the candidate version for the target release, architecture and kernel flavour, including enabled security updates. This is enabled by default for the Debian installer, Debian/Ubuntu cloud images and Ubuntu ISO installation; no kernel entry in `--install` is needed. Existing cloud, generic, HWE and cloud-vendor kernel selection is preserved. No backports, third-party repositories or release upgrades are enabled automatically. Older releases are limited to the versions available in their configured, reachable repositories. Persistent index refresh or kernel installation failures stop installation instead of silently keeping an outdated kernel.
+
 #### Optional Parameters
 
 - `--username USERNAME` Set the username
