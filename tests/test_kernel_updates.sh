@@ -73,20 +73,27 @@ echo 6.12.107-1 >"$state/installed"
 echo 6.12.107-1 >"$state/candidate"
 run_update linux-image-cloud-amd64 || fail 'Updating an installed Debian cloud kernel failed.'
 [ "$(cat "$state/installed")" = 6.12.113-1 ] || fail 'An installed kernel was skipped or stale indexes were reused.'
-grep -qx 'manual linux-image-cloud-amd64' "$state/marks" || fail 'The updated meta-package can be autoremoved.'
+grep -qx 'manual linux-image-amd64' "$state/marks" || fail 'The updated meta-package can be autoremoved.'
 echo 'PASS: installed Debian kernel updates from 6.12.107 to 6.12.113.'
 
-# Keep release, architecture and cloud/HWE flavour from the caller. Do not pin
-# Debian 13 or replace vendor kernels with generic ones.
-for package in linux-image-amd64 linux-image-arm64 linux-image-cloud-arm64 \
-    linux-image-virtual-hwe-22.04 linux-image-generic-hwe-24.04 \
-    linux-image-aws linux-image-azure linux-image-gcp linux-image-oracle \
-    linux-generic-hwe-24.04; do
+# Normalize legacy optimized requests, preserving architecture and HWE release.
+for pair in linux-image-amd64:linux-image-amd64 linux-image-arm64:linux-image-arm64 \
+    linux-image-cloud-arm64:linux-image-arm64 \
+    linux-image-virtual-hwe-22.04:linux-image-generic-hwe-22.04 \
+    linux-image-generic-hwe-24.04:linux-image-generic-hwe-24.04 \
+    linux-image-aws:linux-image-generic linux-image-azure:linux-image-generic \
+    linux-image-gcp:linux-image-generic linux-image-oracle:linux-image-generic \
+    linux-image-ibm:linux-image-generic linux-image-kvm:linux-image-generic \
+    linux-virtual-hwe-24.04:linux-generic-hwe-24.04 \
+    linux-generic-hwe-24.04:linux-generic-hwe-24.04; do
     reset_state
+    package=${pair%%:*}
+    expected=${pair#*:}
     run_update "$package" || fail "Could not install $package."
-    [ "$(cat "$state/package")" = "$package" ] || fail "Kernel flavour changed: $package."
+    [ "$(cat "$state/package")" = "$expected" ] || fail "Wrong standard kernel for $package."
 done
-echo 'PASS: absent kernels, architectures, HWE and cloud flavours are preserved.'
+
+echo 'PASS: standard kernels retain architectures and HWE release suffixes.'
 
 reset_state
 echo 2 >"$state/install-failures"
@@ -149,11 +156,11 @@ for distro in debian ubuntu; do
     export kernel=linux-image-cloud-amd64
     echo 6.12.107-1 >"$state/installed"
     if [ "$distro" = debian ]; then
-        sed -n '/^        kernel_package=\$kernel/,/^        chroot_.*"\$kernel_package"/p' "$root/trans.sh" >"$state/caller.sh"
-        expected_package=linux-image-cloud-amd64
+        sed -n '/^        kernel_package=/,/^        chroot_.*"\$kernel_package"/p' "$root/trans.sh" >"$state/caller.sh"
+        expected_package=linux-image-amd64
     else
         sed -n '/^        flavor=\$(get_ubuntu_kernel_flavor)/,/^        chroot_.*"linux-image-\$flavor"/p' "$root/trans.sh" >"$state/caller.sh"
-        expected_package=linux-image-virtual-hwe-24.04
+        expected_package=linux-image-generic-hwe-24.04
     fi
     [ -s "$state/caller.sh" ] || fail "No $distro cloud caller found."
     bash "$state/caller.sh" >"$state/output" 2>&1 || fail "$distro cloud kernel update failed."
@@ -178,11 +185,11 @@ for installer in debian ubuntu; do
     echo 6.12.107-1 >"$state/installed"
     if [ "$installer" = debian ]; then
         awk '/^    if grep.*ID=.*debian/ { active=1 } active { sub(/\\$/, ""); print } active && /^    fi;/ { exit }' "$root/debian.cfg" >"$state/fragment"
-        expected_package=linux-image-cloud-amd64
+        expected_package=linux-image-amd64
     else
         awk '/^      # Update the selected kernel/ { active=1; next } active && /^$/ { exit } active { print }' "$root/deprecated/ubuntu.yaml" >"$state/fragment"
         export kernel=virtual-hwe-24.04
-        expected_package=linux-virtual-hwe-24.04
+        expected_package=linux-generic-hwe-24.04
     fi
     [ -s "$state/fragment" ] || fail "No $installer installer kernel update found."
     sed "s|/target|$state/target|g" "$state/fragment" >"$state/caller.sh"

@@ -4100,15 +4100,9 @@ EOF
         chroot $os_dir apt-mark auto $pkgs
 
         # 安装合适的内核
-        kernel_package=$kernel
-        # shellcheck disable=SC2046
-        # 检测机器是否能用 cloud 内核
-        if [[ "$kernel_package" = 'linux-image-cloud-*' ]] &&
-            ! sh /can_use_cloud_kernel.sh "$xda" $(get_eths); then
-            kernel_package=$(echo "$kernel_package" | sed 's/-cloud//')
-        fi
+        kernel_package=${kernel/-cloud/}
 
-        # 该方法包含了 apt-mark manual
+        # Refresh indexes and upgrade the standard meta-package even if installed.
         chroot_update_kernel "$os_dir" "$kernel_package"
 
         # 使用 autoremove 删除非最佳内核
@@ -8337,35 +8331,13 @@ is_ubuntu_lts() {
 }
 
 get_ubuntu_kernel_flavor() {
-    # 20.04/22.04 kvm 内核 vnc 没显示
-    # 24.04 kvm = virtual
-    # linux-image-virtual = linux-image-6.x-generic
-    # linux-image-generic = linux-image-6.x-generic + amd64-microcode + intel-microcode + linux-firmware + linux-modules-extra-generic
-
-    # TODO: ISO virtual-hwe-24.04 不安装 linux-image-extra-virtual-hwe-24.04 不然会花屏
-
-    # https://github.com/systemd/systemd/blob/main/src/basic/virt.c
-    # https://github.com/canonical/cloud-init/blob/main/tools/ds-identify
-    # http://git.annexia.org/?p=virt-what.git;a=blob;f=virt-what.in;hb=HEAD
-
-    # 这里有坑
-    # $(get_cloud_vendor) 调用了 cache_dmi_and_virt
-    # 但是 $(get_cloud_vendor) 运行在 subshell 里面
-    # subshell 运行结束后里面的变量就消失了
-    # 因此先运行 cache_dmi_and_virt
-    cache_dmi_and_virt
-    vendor="$(get_cloud_vendor)"
-    case "$vendor" in
-    aws | gcp | oracle | azure | ibm) echo $vendor ;;
-    *)
-        is_ubuntu_lts && suffix=-hwe-$releasever || suffix=
-        if is_virt; then
-            echo virtual$suffix
-        else
-            echo generic$suffix
-        fi
-        ;;
-    esac
+    # Use the full generic kernel on physical and virtual machines alike.
+    # Keep the existing release-specific HWE policy for LTS installations.
+    if is_ubuntu_lts; then
+        echo generic-hwe-$releasever
+    else
+        echo generic
+    fi
 }
 
 install_redhat_ubuntu() {
