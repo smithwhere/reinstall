@@ -50,3 +50,22 @@ basearch=aarch64
 [ -z "$(eval "$grub_gate")" ] ||
     fail 'ARM GRUB unexpectedly changed its display settings.'
 echo 'PASS: BIOS uses VGA text while UEFI and ARM are unchanged.'
+
+# Check the actual Debian/Kali installer kernel command-line construction.
+sed -n '/^[[:space:]]*nextos_cmdline="lowmem\/low=1 auto=true priority=critical"/,/^[[:space:]]*nextos_cmdline+=" url=\$nextos_ks"/p' "$root/reinstall.sh" >"$scratch/debian-video.sh"
+grep -q 'vga=normal fb=false' "$scratch/debian-video.sh" ||
+    fail 'BIOS Debian installer is missing framebuffer-safe boot arguments.'
+kernel_video_gate=$(cat "$scratch/debian-video.sh")
+nextos_ks=https://example.invalid/preseed.cfg
+basearch=x86_64
+test_mode=bios
+eval "$kernel_video_gate"
+case " $nextos_cmdline " in *" vga=normal fb=false "*) ;; *) fail 'BIOS installer is not in VGA text mode.' ;; esac
+test_mode=efi
+eval "$kernel_video_gate"
+case " $nextos_cmdline " in *" vga=normal fb=false "*) fail 'UEFI installer framebuffer was disabled.' ;; esac
+test_mode=bios
+basearch=aarch64
+eval "$kernel_video_gate"
+case " $nextos_cmdline " in *" vga=normal fb=false "*) fail 'ARM installer framebuffer was disabled.' ;; esac
+echo 'PASS: Debian installer console fallback is BIOS-only.'
