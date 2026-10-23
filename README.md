@@ -182,6 +182,8 @@ Debian 和 Ubuntu 安装时会刷新软件源，安装或升级当前系统版�
 
 x86 BIOS 模式下仍配置 GRUB 文本显示与 `console=tty0`；UEFI 使用标准内核提供的显卡驱动，已在 Vultr Debian 13 上验证 `6.12.113+deb13-amd64` 的 bochs DRM 控制台正常。ARM 及未使用 GRUB 的系统跳过文本模式设置；已有 GRUB 串行控制台会保留。`--ethx` 仍覆盖原有 `GRUB_CMDLINE_LINUX` 为 `net.ifnames=0 biosdevname=0`，BIOS 文本控制台配置随后附加 `console=tty0`。
 
+安装阶段 VNC 稳定性：x86 BIOS 重装引导项使用 GRUB 文本控制台及 `gfxpayload=text`；Debian/Kali 安装器额外使用 `vga=normal fb=false`，避免 framebuffer 模式切换。UEFI/ARM 不禁用图形驱动。使用临时 Alpine 环境执行 DD 或其他重装时，安装主进程直接写入 `/reinstall.log`，VNC/串行终端由独立后台进程读取日志，终端失效不会通过 `tee` 管道终止安装。VNC 断开后可通过 SSH 运行 `tail -fn+1 /reinstall.log` 查看进度；服务商的 VNC 服务中断、宿主机重置或系统最终重启仍可能断开连接，脚本不能保证服务商端 VNC 会话始终在线。
+
 #### 可选参数
 
 - `--username USERNAME` 设置用户名
