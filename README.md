@@ -182,6 +182,8 @@ Debian 和 Ubuntu 安装时会刷新软件源，安装或升级当前系统版�
 
 x86 BIOS 模式下仍配置 GRUB 文本显示与 `console=tty0`；UEFI 使用标准内核提供的显卡驱动，已在 Vultr Debian 13 上验证 `6.12.113+deb13-amd64` 的 bochs DRM 控制台正常。ARM 及未使用 GRUB 的系统跳过文本模式设置；已有 GRUB 串行控制台会保留。`--ethx` 仍覆盖原有 `GRUB_CMDLINE_LINUX` 为 `net.ifnames=0 biosdevname=0`，BIOS 文本控制台配置随后附加 `console=tty0`。
 
+为减少 x86 BIOS 云主机在 Debian/Kali 安装器运行时的 VNC 画面中断，临时安装器使用 `vga=normal fb=false` 进入 VGA 文本模式；只影响 x86 BIOS 的 Debian/Kali 安装阶段，UEFI/ARM 的图形内核驱动和启动参数不变。
+
 #### 可选参数
 
 - `--username USERNAME` 设置用户名
