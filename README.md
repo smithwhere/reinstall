@@ -206,6 +206,10 @@ Debian 14 使用 daily 安装器。脚本会校验内核与 initrd 来自同一�
 >
 > 可通过多种方式（SSH、HTTP 80 端口、商家后台 VNC、串行控制台）查看安装进度。
 >
+> 在临时 Alpine 安装环境中，脚本先记录日志到 `/reinstall.log`，再独立镜像到可用的 VNC/串口控制台。控制台短暂失效不会通过 `tee` 中断 DD 或安装进程。重新连接后，可用 SSH 执行 `tail -fn+1 /reinstall.log` 查看完整日志；日志可能包含敏感信息，请勿公开分享。
+>
+> x86 BIOS 的重装引导项强制使用 GRUB 文本显示模式，减少图形 framebuffer 切换；UEFI 保留图形驱动。服务商 VNC 网关或宿主机自身断开连接不受脚本控制，仍应结合控制台平台日志排查。
+>
 > 即使安装过程出错，也能连接 SSH 手动救砖。
 >
 > 目标系统非 Debian/Kali 时，可以运行 `/trans.sh alpine` 自动救砖成 Alpine 系统。

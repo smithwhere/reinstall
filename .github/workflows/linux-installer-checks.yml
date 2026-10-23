@@ -18,6 +18,7 @@ jobs:
           bash -n tests/test_standard_kernel_selection.sh
           bash -n tests/test_standard_kernel_cleanup.sh
           bash -n tests/test_debian_installer_kernel.sh
+          bash -n tests/test_installer_vnc.sh
       - name: Check Debian and Ubuntu kernel updates
         run: bash tests/test_kernel_updates.sh
       - name: Check standard kernel selection and migration
@@ -28,3 +29,5 @@ jobs:
         run: bash tests/test_bios_console.sh
       - name: Check Debian installer kernel matching
         run: bash tests/test_debian_installer_kernel.sh
+      - name: Check installer VNC reliability
+        run: bash tests/test_installer_vnc.sh

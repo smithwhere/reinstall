@@ -8561,6 +8561,25 @@ trans() {
     sleep 5
 }
 
+# Do not stream the installer through tee to a provider VNC/serial tty.
+# Those devices can disappear or stop accepting writes during video-mode changes;
+# a failed tee would close the stdout pipe used by the installation itself.
+# Keep the primary log on the initramfs, and mirror it only from independent
+# background readers. DD mode also gets a recoverable log over SSH.
+start_install_logging() {
+    : >/reinstall.log
+    for console in $(get_ttys /dev/ 2>/dev/null || :); do
+        [ -c "$console" ] || continue
+        (
+            while :; do
+                tail -n +1 -f /reinstall.log >"$console" 2>/dev/null || :
+                sleep 2
+            done
+        ) </dev/null >/dev/null 2>&1 &
+    done
+    exec >>/reinstall.log 2>&1
+}
+
 # 脚本入口
 # debian initrd 会寻找 main
 # 并调用本文件的 create_ifupdown_config 方法
@@ -8651,26 +8670,9 @@ if [ "$hold" = 1 ]; then
     fi
 fi
 
-# 正式运行重装
-# shellcheck disable=SC2046,SC2194
-case 1 in
-1)
-    if [ "$distro" = "dd" ]; then
-        exec > >(exec tee $(get_ttys /dev/)) 2>&1
-    else
-        # ChatGPT 说这种性能最高
-        exec > >(exec tee $(get_ttys /dev/) /reinstall.log) 2>&1
-    fi
-    trans
-    ;;
-2)
-    exec > >(tee $(get_ttys /dev/) /reinstall.log) 2>&1
-    trans
-    ;;
-3)
-    trans 2>&1 | tee $(get_ttys /dev/) /reinstall.log
-    ;;
-esac
+# 正式运行重装。VNC/串口异常不能中断磁盘写入或系统安装。
+start_install_logging
+trans
 
 if [ "$hold" = 2 ]; then
     info "hold 2"

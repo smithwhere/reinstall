@@ -5550,12 +5550,12 @@ set timeout=5
 menuentry "$(get_entry_name)" --unrestricted {
     $(! is_in_windows && echo 'insmod lvm')
     $(is_os_in_btrfs && echo 'set btrfs_relative_path=n')
-    # fedora efi 没有 load_video
+    # UEFI 继续保留显卡驱动和图形控制台；x86 BIOS 使用稳定的
+    # VGA 文本模式，避免 GRUB 的图形 framebuffer 在 VNC 上反复切换。
     insmod all_video
-    # set gfxmode=800x600
-    # set gfxpayload=keep
-    # terminal_output gfxterm 在 vultr 上会花屏
-    # terminal_output console
+    $(if ! is_efi && [ "$basearch" = x86_64 ]; then
+        printf '%s\n' 'terminal_output console' 'set gfxpayload=text'
+    fi)
     search --no-floppy --file --set=root $vmlinuz
     $linux_cmd $vmlinuz $cmdline
     $([ -n "$initrds" ] && echo "$initrd_cmd $initrds")
